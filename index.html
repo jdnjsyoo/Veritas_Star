@@ -12,32 +12,79 @@
       left: 20px;
       bottom: 20px;
       padding: 10px 14px;
-      background: rgba(0, 0, 0, 0.6);
-      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.7);
+      border-radius: 10px;
       color: #fff;
       z-index: 10;
+      font-size: 13px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-width: 360px;
+    }
+
+    #ui-row {
       display: flex;
       align-items: center;
-      gap: 8px;
-      font-size: 14px;
+      gap: 6px;
+      flex-wrap: wrap;
     }
 
     #timeSlider {
-      width: 220px;
+      width: 180px;
+    }
+
+    button {
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid #888;
+      background: rgba(255,255,255,0.05);
+      color: #fff;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    button:hover {
+      background: rgba(255,255,255,0.18);
+    }
+
+    .label-strong {
+      font-weight: 600;
     }
   </style>
 </head>
 <body>
+  <!-- UI 패널 -->
   <div id="ui">
-    <span>Time</span>
-    <input type="range" id="timeSlider" min="0" max="100" value="0" />
-    <span id="timeValue">0.00</span>
+    <!-- 시간 슬라이더 -->
+    <div id="ui-row">
+      <span class="label-strong">Time</span>
+      <input type="range" id="timeSlider" min="0" max="100" value="0" />
+      <span id="timeValue">0.00</span>
+    </div>
+
+    <!-- 우주 시간 표시 -->
+    <div id="ui-row">
+      <span id="ageLabel">우주 나이: 빅뱅 직후 (0억 년)</span>
+    </div>
+
+    <!-- 테마 + 초기화 버튼 -->
+    <div id="ui-row">
+      <button id="resetBtn">초기 위치 Reset</button>
+      <button id="bigbangBtn">빅뱅 모드</button>
+      <button id="presentBtn">현재 우주 모드</button>
+    </div>
+
+    <div id="ui-row">
+      <span id="themeLabel">테마: 빅뱅 (초기 우주)</span>
+    </div>
   </div>
 
   <script type="module">
     import * as THREE from './three.module.js';
     import { OrbitControls } from './OrbitControls.js';
 
+    // ----- 기본 세팅 -----
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x000000);
 
@@ -48,7 +95,7 @@
       5000
     );
     const baseCamRadius = 150;
-    camera.position.z = baseCamRadius;
+    camera.position.set(0, 0, baseCamRadius);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -66,19 +113,86 @@
       renderer.setSize(window.innerWidth, window.innerHeight);
     });
 
+    // ----- UI 요소 -----
     const timeSlider = document.getElementById('timeSlider');
     const timeValue  = document.getElementById('timeValue');
+    const ageLabel   = document.getElementById('ageLabel');
+    const themeLabel = document.getElementById('themeLabel');
+    const resetBtn   = document.getElementById('resetBtn');
+    const bigbangBtn = document.getElementById('bigbangBtn');
+    const presentBtn = document.getElementById('presentBtn');
 
     let simTime = 0;
-    const maxSimTime = 30;
+    const maxSimTime = 30;        // 시뮬레이션 내부 시간
+    const maxUniverseAgeEokyr = 138; // 우주 나이 최대값 ≈ 138억 년
 
-    timeSlider.addEventListener('input', () => {
-      const ratio = timeSlider.value / 100;
-      simTime = ratio * maxSimTime;
+    // 우주 나이 / 시대 텍스트 업데이트 함수
+    function updateTimeUI() {
       timeValue.textContent = simTime.toFixed(2);
+
+      const norm = Math.min(Math.max(simTime / maxSimTime, 0), 1); // 0~1
+      const ageEok = maxUniverseAgeEokyr * norm;                   // 억 년 단위 나이
+
+      // 시대 간단 설명
+      let era = '';
+      if (norm < 0.1) {
+        era = '빅뱅 직후 고온 플라즈마 시대';
+      } else if (norm < 0.3) {
+        era = '재결합 전후, 초기 우주';
+      } else if (norm < 0.6) {
+        era = '암흑 시대와 초기 은하 형성';
+      } else if (norm < 0.9) {
+        era = '은하·별이 활발히 형성되는 시기';
+      } else {
+        era = '현재에 가까운 우주 구조';
+      }
+
+      ageLabel.textContent =
+        `우주 나이: 약 ${ageEok.toFixed(1)}억 년 (${era})`;
+    }
+
+    // 슬라이더로 시간 제어
+    timeSlider.addEventListener('input', () => {
+      const ratio = timeSlider.value / 100;  // 0 ~ 1
+      simTime = ratio * maxSimTime;
+      updateTimeUI();
     });
 
+    // 테마 적용 함수
+    function applyTheme(theme) {
+      if (theme === 'bigbang') {
+        simTime = 0;
+        timeSlider.value = 0;
+        themeLabel.textContent = '테마: 빅뱅 (초기 우주)';
+      } else if (theme === 'present') {
+        simTime = maxSimTime;
+        timeSlider.value = 100;
+        themeLabel.textContent = '테마: 현재 우주';
+      }
+      // 카메라/씬은 애니메이션에서 simTime 기반으로 자동 반영됨
+      updateTimeUI();
+    }
+
+    // 초기 위치 Reset 버튼
+    resetBtn.addEventListener('click', () => {
+      // 시간 / 테마 초기화
+      simTime = 0;
+      timeSlider.value = 0;
+      themeLabel.textContent = '테마: 빅뱅 (초기 우주)';
+      updateTimeUI();
+
+      // 카메라 및 컨트롤 초기화
+      camera.position.set(0, 0, baseCamRadius);
+      controls.target.set(0, 0, 0);
+      controls.update();
+    });
+
+    bigbangBtn.addEventListener('click', () => applyTheme('bigbang'));
+    presentBtn.addEventListener('click', () => applyTheme('present'));
+
+    // ----- 빅뱅 파티클 생성 -----
     const particleCount = 8000;
+
     const positions = new Float32Array(particleCount * 3);
     const dirs      = new Float32Array(particleCount * 3);
     const radii0    = new Float32Array(particleCount);
@@ -98,13 +212,16 @@
 
     for (let i = 0; i < particleCount; i++) {
       const dir = randomDirectionOnSphere();
-      const r0 = Math.random() * 0.5;
+      const r0 = Math.random() * 0.5; // 거의 0 근처
+
       const idx3 = i * 3;
       dirs[idx3]     = dir.x;
       dirs[idx3 + 1] = dir.y;
       dirs[idx3 + 2] = dir.z;
-      radii0[i]  = r0;
-      speeds[i]  = 0.7 + Math.random() * 1.3;
+
+      radii0[i] = r0;
+      speeds[i] = 0.7 + Math.random() * 1.3;
+
       positions[idx3]     = dir.x * r0;
       positions[idx3 + 1] = dir.y * r0;
       positions[idx3 + 2] = dir.z * r0;
@@ -123,6 +240,7 @@
     const particles = new THREE.Points(geometry, particleMaterial);
     scene.add(particles);
 
+    // ----- 중앙 빛(성운 느낌) -----
     const glowGeometry = new THREE.SphereGeometry(3, 32, 32);
     const glowMaterial = new THREE.MeshBasicMaterial({
       color: 0xffddaa,
@@ -132,6 +250,7 @@
     const glow = new THREE.Mesh(glowGeometry, glowMaterial);
     scene.add(glow);
 
+    // ----- 배경 스타필드 -----
     const starCount = 3000;
     const starPositions = new Float32Array(starCount * 3);
     const starRadiusMin = 800;
@@ -171,13 +290,17 @@
     const starField = new THREE.Points(starGeometry, starMaterial);
     scene.add(starField);
 
-    const colorHot  = new THREE.Color(0x88ccff);
-    const colorMid  = new THREE.Color(0xffffff);
-    const colorCool = new THREE.Color(0xff8844);
+    // ----- 색 변화용 컬러 -----
+    const colorHot  = new THREE.Color(0x88ccff); // 초기 고온
+    const colorMid  = new THREE.Color(0xffffff); // 중간
+    const colorCool = new THREE.Color(0xff8844); // 식은 우주
     const tempColor = new THREE.Color();
 
     let cameraTime = 0;
     const clock = new THREE.Clock();
+
+    // 최초 UI 텍스트 초기화
+    updateTimeUI();
 
     function animate() {
       requestAnimationFrame(animate);
@@ -186,10 +309,11 @@
       cameraTime += dt;
 
       const posAttr = geometry.attributes.position;
-      const posArr = posAttr.array;
+      const posArr  = posAttr.array;
 
-      const norm = Math.min(simTime / maxSimTime, 1);
+      const norm = Math.min(Math.max(simTime / maxSimTime, 0), 1);
 
+      // 입자 위치 업데이트 (우주 팽창)
       for (let i = 0; i < particleCount; i++) {
         const idx3 = i * 3;
         const currentR = radii0[i] + speeds[i] * simTime;
@@ -199,31 +323,44 @@
       }
       posAttr.needsUpdate = true;
 
+      // 공간 자체가 팽창하는 느낌 (씬 스케일)
       const universeScale = 1 + norm * 0.7;
       scene.scale.set(universeScale, universeScale, universeScale);
 
+      // 카메라는 기본 반지름 주변을 천천히 공전 (사용자가 돌리면 OrbitControls가 우선)
       const camRadius = baseCamRadius * (1 + norm * 0.4);
-      camera.position.x = Math.sin(cameraTime * 0.2) * camRadius;
-      camera.position.z = Math.cos(cameraTime * 0.2) * camRadius;
+      if (!controls.userIsInteracting) {
+        camera.position.x = Math.sin(cameraTime * 0.2) * camRadius;
+        camera.position.z = Math.cos(cameraTime * 0.2) * camRadius;
+      }
+      controls.update();
 
-      controls.update(); // 🟢 OrbitControls 매 프레임 업데이트
-
+      // 중앙 빛 크기/투명도 변화
       const glowScale = 1 + simTime * 0.15;
       glow.scale.set(glowScale, glowScale, glowScale);
       glow.material.opacity = Math.max(0, 0.7 - norm * 0.6);
 
-      if (norm < 0.5) tempColor.lerpColors(colorHot, colorMid, norm / 0.5);
-      else tempColor.lerpColors(colorMid, colorCool, (norm - 0.5) / 0.5);
-
+      // 파티클 색: 푸른→흰→붉은
+      if (norm < 0.5) {
+        tempColor.lerpColors(colorHot, colorMid, norm / 0.5);
+      } else {
+        tempColor.lerpColors(colorMid, colorCool, (norm - 0.5) / 0.5);
+      }
       particleMaterial.color.copy(tempColor);
       particleMaterial.opacity = 0.95 * (1 - norm * 0.4);
 
+      // 스타필드도 팽창 + 회전
       starField.rotation.y += dt * 0.01;
       const starScale = 1 + norm * 0.8;
       starField.scale.set(starScale, starScale, starScale);
 
       renderer.render(scene, camera);
     }
+
+    // OrbitControls에 사용자 인터랙션 여부 플래그 달기
+    controls.userIsInteracting = false;
+    controls.addEventListener('start', () => { controls.userIsInteracting = true; });
+    controls.addEventListener('end',   () => { controls.userIsInteracting = false; });
 
     animate();
   </script>
